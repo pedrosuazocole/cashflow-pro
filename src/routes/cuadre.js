@@ -772,23 +772,6 @@ function guardarCuadreNuevo(req, res) {
   const existe = db.prepare('SELECT id FROM cuadres_diarios WHERE empresa_id = ? AND fecha = ?').get(empId, data.fecha);
   if (existe) return res.send('<script>alert("Ya existe un cuadre para esta fecha");history.back();</script>');
 
-  // Validar que el asiento contable cuadre antes de guardar
-  const _num = v => parseFloat(v) || 0;
-  const _debe = _num(data.efectivo_disponible) + _num(data.sobrante_dumbar)
-              + _num(data.ventas_credito_pista) + _num(data.ventas_credito_tienda)
-              + _num(data.pos_bac) + _num(data.pos_ficohsa)
-              + _num(data.comision_bac) + _num(data.comision_ficohsa)
-              + _num(data.nc_descuentos_cc) + _num(data.descuento_auto_servicio)
-              + _num(data.cheques_post_fechados);
-  const _haber = _num(data.ingresos_pista)
-               + _num(data.venta_gravada_15) + _num(data.venta_gravada_18) + _num(data.venta_exenta)
-               + _num(data.isv_15) + _num(data.isv_18)
-               + _num(data.anticipos_clientes) + _num(data.cobros_tienda)
-               + _num(data.total_alquileres);
-  if (Math.abs(_debe - _haber) > 0.10) {
-    return res.send('<script>alert("El asiento contable no está cuadrado. DEBE: L '+_debe.toFixed(2)+' / HABER: L '+_haber.toFixed(2)+'. Corregí los valores antes de guardar.");history.back();</script>');
-  }
-
   const campos = buildCampos(data);
   const cols = Object.keys(campos).join(', ');
   const placeholders = Object.keys(campos).map(() => '?').join(', ');
@@ -828,39 +811,54 @@ function guardarCuadreNuevo(req, res) {
 }
 // ─── ACTUALIZAR ───
 router.post('/:id', (req, res) => {
-  const { _method } = req.body;
-  if (_method === 'PUT') {
+  // Multer procesa multipart/form-data para recibir archivos adjuntos
+  upload(req, res, function(uploadErr) {
+    if (uploadErr) console.error('[Upload editar]', uploadErr.message);
+
+    const { _method } = req.body;
+    if (_method !== 'PUT') return res.redirect('/cuadre');
+
     const empId = req.session.empresa.id;
-    const id = req.params.id;
-    const data = req.body;
-    // Validar que el asiento contable cuadre antes de actualizar
-    const _num2 = v => parseFloat(v) || 0;
-    const _debe2 = _num2(data.efectivo_disponible) + _num2(data.sobrante_dumbar)
-                 + _num2(data.ventas_credito_pista) + _num2(data.ventas_credito_tienda)
-                 + _num2(data.pos_bac) + _num2(data.pos_ficohsa)
-                 + _num2(data.comision_bac) + _num2(data.comision_ficohsa)
-                 + _num2(data.nc_descuentos_cc) + _num2(data.descuento_auto_servicio)
-                 + _num2(data.cheques_post_fechados);
-    const _haber2 = _num2(data.ingresos_pista)
-                  + _num2(data.venta_gravada_15) + _num2(data.venta_gravada_18) + _num2(data.venta_exenta)
-                  + _num2(data.isv_15) + _num2(data.isv_18)
-                  + _num2(data.anticipos_clientes) + _num2(data.cobros_tienda)
-                  + _num2(data.total_alquileres);
-    if (Math.abs(_debe2 - _haber2) > 0.10) {
-      return res.send('<script>alert("El asiento contable no está cuadrado. DEBE: L '+_debe2.toFixed(2)+' / HABER: L '+_haber2.toFixed(2)+'. Corregí los valores antes de guardar.");history.back();</script>');
-    }
+    const id    = req.params.id;
+    const data  = req.body;
 
     const campos = buildCampos(data);
-    
-    const sets = Object.keys(campos).map(k => `${k} = ?`).join(', ');
-    db.prepare(`UPDATE cuadres_diarios SET ${sets}, updated_at = datetime('now','localtime') WHERE id = ? AND empresa_id = ?`).run(...Object.values(campos), id, empId);
-    
-    // Actualizar asiento
+    const sets   = Object.keys(campos).map(k => k + ' = ?').join(', ');
+    db.prepare('UPDATE cuadres_diarios SET ' + sets + ', updated_at = datetime(\'now\',\'localtime\') WHERE id = ? AND empresa_id = ?')
+      .run(...Object.values(campos), id, empId);
+
+    // Guardar adjuntos nuevos (acumular con los existentes)
+    if (req.files && req.files.length > 0) {
+      const existente = db.prepare('SELECT imagenes_deposito FROM cuadres_diarios WHERE id=?').get(id);
+      const previos   = existente && existente.imagenes_deposito ? existente.imagenes_deposito : '';
+      const nuevos    = req.files.map(f => f.filename).join(',');
+      const todos     = [previos, nuevos].filter(Boolean).join(',');
+      db.prepare('UPDATE cuadres_diarios SET imagenes_deposito=? WHERE id=?').run(todos, id);
+    }
+
+    // Actualizar asiento contable
     actualizarAsiento(id, empId, data);
-    
+
+    // Enviar notificación WhatsApp si estado = finalizado
+    if (data.estado === 'finalizado') {
+      try {
+        const wa          = require('../services/whatsapp');
+        const cuadreGuardado = db.prepare(wa.SQL_CUADRE + ' WHERE id=?').get(id);
+        if (cuadreGuardado) {
+          const msg     = wa.mensajeCuadre(req.session.empresa, cuadreGuardado);
+          const baseUrl = req.protocol + '://' + req.get('host');
+          const imgUrls = cuadreGuardado.imagenes_deposito
+            ? cuadreGuardado.imagenes_deposito.split(',').filter(Boolean)
+                .map(f => baseUrl + '/uploads/' + f.trim())
+            : [];
+          wa.enviarAEmpresa(empId, 'cuadre_diario', msg, imgUrls)
+            .catch(e => console.error('[Notif editar]', e.message));
+        }
+      } catch(e) { console.error('[Notif editar]', e.message); }
+    }
+
     return res.redirect('/cuadre');
-  }
-  res.redirect('/cuadre');
+  });
 });
 
 // ─── ELIMINAR ───
