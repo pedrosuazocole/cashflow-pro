@@ -110,7 +110,7 @@ router.get('/', (req, res) => {
       });
     }
     function printCuadre(id) {
-      fetch('/cuadre/'+id+'/print-data').then(r=>r.json()).then(data => {
+      fetch('/cuadre/'+id+'/print-data?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(data => {
         document.getElementById('printPreviewContent').innerHTML = data.html;
         document.getElementById('printModal').classList.add('open');
         window._printId = id;
@@ -814,7 +814,7 @@ router.get('/:id', (req, res) => {
   </div>
   <script>
     function printCuadre(id) {
-      fetch('/cuadre/'+id+'/print-data').then(r=>r.json()).then(data => {
+      fetch('/cuadre/'+id+'/print-data?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(data => {
         document.getElementById('printPreviewContent').innerHTML = data.html;
         document.getElementById('printModal').classList.add('open');
         window._printId = id;
@@ -829,6 +829,7 @@ router.get('/:id', (req, res) => {
 router.get('/:id/print-data', (req, res) => {
   const c = db.prepare('SELECT * FROM cuadres_diarios WHERE id = ? AND empresa_id = ?').get(req.params.id, req.session.empresa.id);
   if (!c) return res.json({ html: '<p>No encontrado</p>' });
+  res.set('Cache-Control','no-store');
   const emp = req.session.empresa;
   const fmt = (n) => new Intl.NumberFormat('es-HN', { minimumFractionDigits: 2 }).format(n || 0);
   
