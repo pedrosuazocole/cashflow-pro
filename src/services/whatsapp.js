@@ -184,11 +184,12 @@ ISV 18%:  ${fmt(tienda.isv18 || n(tienda.grav18)*0.18)}
 _Enviado por CashFlow Pro_`;
 }
 
-function getImagenesUrls(cuadre) {
+function getImagenesUrls(cuadre, baseUrl) {
   if (!cuadre || !cuadre.imagenes_deposito) return [];
-  const base = process.env.RAILWAY_PUBLIC_DOMAIN
-    ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN
-    : (process.env.APP_URL || '');
+  const base = baseUrl
+    || (process.env.RAILWAY_PUBLIC_DOMAIN ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN : '')
+    || process.env.APP_URL
+    || '';
   if (!base) return [];
   return cuadre.imagenes_deposito.split(',').filter(Boolean).map(f => base + '/uploads/' + f.trim());
 }
