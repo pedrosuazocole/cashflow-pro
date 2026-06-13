@@ -568,6 +568,8 @@ router.post('/enviar', async (req, res) => {
         if (!cuadre)
           return res.json({ ok: false, error: `No existe cuadre para la fecha ${fechaBuscar}` });
         msgTexto = wa.mensajeCuadre(empresa, cuadre);
+        // Extraer URLs de imágenes adjuntas al cuadre
+        req._imgUrls = wa.getImagenesUrls ? wa.getImagenesUrls(cuadre) : [];
         break;
       }
       case 'libro_ventas': {
@@ -634,7 +636,15 @@ router.post('/enviar', async (req, res) => {
         const { ok: okEnv, respuesta } = await wa.enviarMensaje(cfg.textmebot_key, c.telefono, msgTexto);
         wa.registrarLog(empId, c.id, 'manual', msgTexto, okEnv?'enviado':'error', respuesta);
         okEnv ? enviados++ : errores++;
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, 2000));
+        // Enviar adjuntos del cuadre uno por uno
+        if (req._imgUrls && req._imgUrls.length > 0) {
+          for (const url of req._imgUrls) {
+            await new Promise(r => setTimeout(r, 3000));
+            const r2 = await wa.enviarMensaje(cfg.textmebot_key, c.telefono, '📎 Comprobante de depósito', url);
+            wa.registrarLog(empId, c.id, 'manual_adjunto', url, r2.ok?'enviado':'error', r2.respuesta);
+          }
+        }
       }
     } else {
       const c = db.prepare('SELECT * FROM notif_contactos WHERE id=?').get(destino);
@@ -642,6 +652,14 @@ router.post('/enviar', async (req, res) => {
       const { ok: okEnv, respuesta } = await wa.enviarMensaje(cfg.textmebot_key, c.telefono, msgTexto);
       wa.registrarLog(empId, c.id, 'manual', msgTexto, okEnv?'enviado':'error', respuesta);
       okEnv ? enviados++ : errores++;
+      // Enviar adjuntos del cuadre uno por uno
+      if (req._imgUrls && req._imgUrls.length > 0) {
+        for (const url of req._imgUrls) {
+          await new Promise(r => setTimeout(r, 3000));
+          const r2 = await wa.enviarMensaje(cfg.textmebot_key, c.telefono, '📎 Comprobante de depósito', url);
+          wa.registrarLog(empId, c.id, 'manual_adjunto', url, r2.ok?'enviado':'error', r2.respuesta);
+        }
+      }
     }
 
     res.json({
