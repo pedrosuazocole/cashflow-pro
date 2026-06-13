@@ -35,7 +35,7 @@ cron.schedule('* * * * *', async () => {
     try {
       // Buscar el cuadre de hoy
       const cuadre = db.prepare(
-        "SELECT * FROM cuadres_diarios WHERE empresa_id=? AND fecha=? ORDER BY id DESC LIMIT 1"
+        wa.SQL_CUADRE + " WHERE empresa_id=? AND fecha=? ORDER BY id DESC LIMIT 1"
       ).get(emp.id, hoy());
 
       if (!cuadre) {
