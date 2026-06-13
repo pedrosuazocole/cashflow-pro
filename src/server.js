@@ -37,6 +37,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/manifest.json', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'manifest.json'));
 });
+// Servir adjuntos de depósitos
+const uploadsPath = process.env.RAILWAY_VOLUME_MOUNT_PATH
+  ? require('path').join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads')
+  : require('path').join(__dirname, '..', 'data', 'uploads');
+app.use('/uploads', require('express').static(uploadsPath));
+
 // Service Worker
 app.get('/sw.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'sw.js'));

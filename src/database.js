@@ -270,6 +270,9 @@ seed();
 
 module.exports = db;
 
+// ── Migración: columna imagenes_deposito ──
+try { db.exec("ALTER TABLE cuadres_diarios ADD COLUMN imagenes_deposito TEXT"); } catch(e) {}
+
 // ── Tablas de Notificaciones (agregadas) ──
 db.exec(`
   CREATE TABLE IF NOT EXISTS notif_contactos (
