@@ -18,7 +18,14 @@ router.get('/', (req, res) => {
   if (mes) { where += ' AND fecha LIKE ?'; params.push(`${mes}%`); }
   if (estado) { where += ' AND estado = ?'; params.push(estado); }
 
-  const cuadres = db.prepare(`SELECT id, fecha, prefijo_premium, ingresos_pista, ingresos_tienda, total_ingresos, total_depositos, sobrante, faltante, estado, created_at FROM cuadres_diarios ${where} ORDER BY fecha DESC`).all(...params);
+  const cuadres = db.prepare(`SELECT id, fecha, prefijo_premium,
+    (venta_super + venta_regular + venta_diesel) as ingresos_pista,
+    (venta_exenta + venta_gravada_15 + isv_15 + venta_gravada_18 + isv_18) as ingresos_tienda,
+    (venta_super + venta_regular + venta_diesel +
+     venta_exenta + venta_gravada_15 + isv_15 + venta_gravada_18 + isv_18 +
+     cobros_tienda + anticipos_clientes + nc_descuentos_cred + total_alquileres) as total_ingresos,
+    total_depositos, sobrante, faltante, estado, created_at
+    FROM cuadres_diarios ${where} ORDER BY fecha DESC`).all(...params);
   const fmt = (n) => new Intl.NumberFormat('es-HN', { minimumFractionDigits: 2 }).format(n || 0);
 
   const content = `

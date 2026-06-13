@@ -58,7 +58,8 @@ router.get('/libro-ventas', (req, res) => {
   const cuadres = db.prepare(`
     SELECT fecha, prefijo_premium, prefijo_ruby, fac_premium, fac_ruby,
       venta_super, venta_regular, venta_diesel, ingresos_pista,
-      venta_exenta, venta_gravada_15, isv_15, venta_gravada_18, isv_18, ingresos_tienda,
+      venta_exenta, venta_gravada_15, isv_15, venta_gravada_18, isv_18,
+      (venta_exenta + venta_gravada_15 + isv_15 + venta_gravada_18 + isv_18) as ingresos_tienda,
       total_alquileres, total_ingresos
     FROM cuadres_diarios WHERE empresa_id = ? AND fecha LIKE ? ORDER BY fecha ASC
   `).all(empId, `${mes}%`);
@@ -432,7 +433,7 @@ router.get('/comparativo-pista/export', (req, res) => {
   for (let m = 1; m <= 12; m++) {
     const mesStr = `${anio}-${String(m).padStart(2,'0')}`;
     const label = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][m-1];
-    const datos = db.prepare(`SELECT SUM(venta_super) as super, SUM(venta_regular) as regular, SUM(venta_diesel) as diesel, SUM(ingresos_pista) as total FROM cuadres_diarios WHERE empresa_id = ? AND fecha LIKE ?`).get(empId, `${mesStr}%`);
+    const datos = db.prepare(`SELECT SUM(venta_super) as super, SUM(venta_regular) as regular, SUM(venta_diesel) as diesel, SUM(venta_super + venta_regular + venta_diesel) as total FROM cuadres_diarios WHERE empresa_id = ? AND fecha LIKE ?`).get(empId, `${mesStr}%`);
     meses.push([label, datos?.super||0, datos?.regular||0, datos?.diesel||0, datos?.total||0]);
   }
   const data = [

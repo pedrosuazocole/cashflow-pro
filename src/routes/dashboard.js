@@ -15,8 +15,8 @@ router.get('/', requireAuth, requireEmpresa, (req, res) => {
   // Stats del mes
   const cuadresMes = db.prepare(`
     SELECT COUNT(*) as total, 
-           SUM(ingresos_pista) as total_pista,
-           SUM(ingresos_tienda) as total_tienda,
+           SUM(venta_super + venta_regular + venta_diesel) as total_pista,
+           SUM(venta_exenta + venta_gravada_15 + isv_15 + venta_gravada_18 + isv_18) as total_tienda,
            SUM(total_depositos) as total_depositos
     FROM cuadres_diarios 
     WHERE empresa_id = ? AND fecha LIKE ?
@@ -24,7 +24,13 @@ router.get('/', requireAuth, requireEmpresa, (req, res) => {
 
   // Últimos 7 cuadres
   const ultimos = db.prepare(`
-    SELECT fecha, ingresos_pista, ingresos_tienda, total_ingresos, estado
+    SELECT fecha,
+    (venta_super + venta_regular + venta_diesel) as ingresos_pista,
+    (venta_exenta + venta_gravada_15 + isv_15 + venta_gravada_18 + isv_18) as ingresos_tienda,
+    (venta_super + venta_regular + venta_diesel +
+     venta_exenta + venta_gravada_15 + isv_15 + venta_gravada_18 + isv_18 +
+     cobros_tienda + anticipos_clientes + nc_descuentos_cred + total_alquileres) as total_ingresos,
+    estado
     FROM cuadres_diarios 
     WHERE empresa_id = ? ORDER BY fecha DESC LIMIT 7
   `).all(empresaId);
