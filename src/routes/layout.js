@@ -158,7 +158,7 @@ function layout(content, { title = 'Dashboard', user, empresa, empresas = [], ac
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" id="btnCancelarPrint">Cancelar</button>
-      <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+      <button class="btn btn-primary" onclick="imprimirContenido()">🖨️ Imprimir</button>
     </div>
   </div>
 </div>
@@ -167,6 +167,36 @@ function layout(content, { title = 'Dashboard', user, empresa, empresas = [], ac
 <script>
   document.getElementById('btnCerrarPrint') && document.getElementById('btnCerrarPrint').addEventListener('click', function(){ document.getElementById('printModal').classList.remove('open'); });
   document.getElementById('btnCancelarPrint') && document.getElementById('btnCancelarPrint').addEventListener('click', function(){ document.getElementById('printModal').classList.remove('open'); });
+
+  function imprimirContenido() {
+    var contenido = document.getElementById('printPreviewContent');
+    if (!contenido) return;
+    var ventana = window.open('', '_blank', 'width=800,height=900');
+    ventana.document.write(\`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cuadre Diario de Caja</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #000; background: #fff; padding: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    th, td { padding: 4px 8px; }
+    @page { margin: 1.5cm; size: A4; }
+    @media print {
+      body { padding: 0; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>\` + contenido.innerHTML + \`</body></html>\`);
+    ventana.document.close();
+    ventana.focus();
+    setTimeout(function() {
+      ventana.print();
+      ventana.close();
+    }, 500);
+  }
 </script>
 </body>
 </html>`;
