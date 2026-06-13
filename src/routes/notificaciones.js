@@ -563,7 +563,7 @@ router.post('/enviar', async (req, res) => {
       case 'cuadre_fecha': {
         const fechaBuscar = tipo==='cuadre_hoy' ? new Date().toISOString().split('T')[0] : fecha;
         const cuadre = db.prepare(
-          'SELECT * FROM cuadres_diarios WHERE empresa_id=? AND fecha=? ORDER BY id DESC LIMIT 1'
+          wa.SQL_CUADRE + ' WHERE empresa_id=? AND fecha=? ORDER BY id DESC LIMIT 1'
         ).get(empId, fechaBuscar);
         if (!cuadre)
           return res.json({ ok: false, error: `No existe cuadre para la fecha ${fechaBuscar}` });
@@ -573,9 +573,13 @@ router.post('/enviar', async (req, res) => {
       case 'libro_ventas': {
         const datos = db.prepare(`
           SELECT COUNT(*) as total_dias,
-            SUM(venta_exenta) as total_exenta, SUM(venta_gravada_15) as total_grav15,
-            SUM(venta_gravada_18) as total_grav18, SUM(isv_15+isv_18) as total_isv,
-            SUM(ingresos_pista) as total_pista, SUM(total_ingresos) as total_ingresos
+            SUM(venta_exenta) as total_exenta,
+            SUM(venta_gravada_15) as total_grav15,
+            SUM(venta_gravada_15 * 0.15) as total_isv15,
+            SUM(venta_gravada_18) as total_grav18,
+            SUM(venta_gravada_18 * 0.18) as total_isv18,
+            SUM(venta_super + venta_regular + venta_diesel) as total_pista,
+            SUM(cobros_tienda) as total_cobros
           FROM cuadres_diarios WHERE empresa_id=? AND fecha LIKE ?
         `).get(empId, `${mesActual}%`);
         msgTexto = wa.mensajeLibroVentas(empresa, datos, mesActual);
