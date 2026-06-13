@@ -1,0 +1,15 @@
+# nixpacks.toml — CashFlow Pro
+# Asegura que better-sqlite3 compile correctamente en Railway
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+# No hay build step (vanilla JS, sin bundler)
+cmds = []
+
+[start]
+cmd = "node src/server.js"

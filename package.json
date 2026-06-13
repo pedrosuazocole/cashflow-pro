@@ -1,0 +1,26 @@
+{
+  "name": "cashflow-pro",
+  "version": "1.0.0",
+  "description": "Sistema de Cuadre de Caja Multiempresa - CashFlow Pro",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "axios": "^1.17.0",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.9.1",
+    "connect-sqlite3": "^0.9.14",
+    "express": "^4.18.3",
+    "express-session": "^1.18.0",
+    "node-cron": "^4.2.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}

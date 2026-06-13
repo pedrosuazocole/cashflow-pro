@@ -1,0 +1,27 @@
+{
+  "name": "CashFlow Pro",
+  "short_name": "CashFlow",
+  "description": "Sistema de Cuadre de Caja Multiempresa para Gasolineras y Negocios",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1a9e5c",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business", "productivity"],
+  "lang": "es",
+  "dir": "ltr"
+}
