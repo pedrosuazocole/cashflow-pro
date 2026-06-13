@@ -798,12 +798,32 @@ function guardarCuadreNuevo(req, res) {
   
   // Generar asiento contable automáticamente
   generarAsiento(result.lastInsertRowid, empId, data, req.session.user.id);
-  generarAsiento(result.lastInsertRowid, empId, data, req.session.user.id);
   // Guardar adjuntos si se subieron
   if (req.files && req.files.length > 0) {
     const paths = req.files.map(f => f.filename).join(',');
     db.prepare("UPDATE cuadres_diarios SET imagenes_deposito=? WHERE id=?").run(paths, result.lastInsertRowid);
   }
+
+  // Enviar notificación WhatsApp automática si el estado es 'finalizado'
+  if (data.estado === 'finalizado') {
+    try {
+      const wa = require('../services/whatsapp');
+      const cuadreGuardado = db.prepare(wa.SQL_CUADRE + ' WHERE id=?').get(result.lastInsertRowid);
+      if (cuadreGuardado) {
+        const empresa = req.session.empresa;
+        const msg     = wa.mensajeCuadre(empresa, cuadreGuardado);
+        const baseUrl = req.protocol + '://' + req.get('host');
+        const imgUrls = cuadreGuardado.imagenes_deposito
+          ? cuadreGuardado.imagenes_deposito.split(',').filter(Boolean).map(f => baseUrl + '/uploads/' + f.trim())
+          : [];
+        // Enviar en background sin bloquear el redirect
+        wa.enviarAEmpresa(empId, 'cuadre_diario', msg, imgUrls).catch(e =>
+          console.error('[Notif cuadre nuevo]', e.message)
+        );
+      }
+    } catch(e) { console.error('[Notif cuadre nuevo]', e.message); }
+  }
+
   res.redirect('/cuadre');
 }
 // ─── ACTUALIZAR ───

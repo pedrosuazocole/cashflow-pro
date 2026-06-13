@@ -568,8 +568,10 @@ router.post('/enviar', async (req, res) => {
         if (!cuadre)
           return res.json({ ok: false, error: `No existe cuadre para la fecha ${fechaBuscar}` });
         msgTexto = wa.mensajeCuadre(empresa, cuadre);
-        // Extraer URLs de imágenes adjuntas al cuadre
-        req._imgUrls = wa.getImagenesUrls ? wa.getImagenesUrls(cuadre) : [];
+        // Extraer URLs usando el host del request como base (funciona sin variable de entorno)
+        const baseUrl = req.protocol + '://' + req.get('host');
+        req._imgUrls = wa.getImagenesUrls ? wa.getImagenesUrls(cuadre, baseUrl) : [];
+        console.log('[Notif] Adjuntos encontrados:', req._imgUrls.length);
         break;
       }
       case 'libro_ventas': {
