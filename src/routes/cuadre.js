@@ -158,12 +158,24 @@ function renderForm(req, res, cuadre) {
             <input type="text" name="prefijo_premium" value="${vs('prefijo_premium')}" class="form-control" placeholder="Ej: 01172231-01172877">
           </div>
           <div class="form-group">
+            <label>Factura Premium</label>
+            <input type="text" name="fac_premium" value="${vs('fac_premium')}" class="form-control" placeholder="Ej: 01172877">
+          </div>
+          <div class="form-group">
             <label>Prefijo Ruby</label>
             <input type="text" name="prefijo_ruby" value="${vs('prefijo_ruby')}" class="form-control">
           </div>
           <div class="form-group">
+            <label>Factura Ruby</label>
+            <input type="text" name="fac_ruby" value="${vs('fac_ruby')}" class="form-control" placeholder="Ej: 00001234">
+          </div>
+          <div class="form-group">
             <label>Prefijo Talonario</label>
             <input type="text" name="prefijo_talonario" value="${vs('prefijo_talonario')}" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Factura Talonario</label>
+            <input type="text" name="fac_talonario" value="${vs('fac_talonario')}" class="form-control" placeholder="Ej: 00005678">
           </div>
         </div>
       </div>
@@ -519,80 +531,128 @@ function renderForm(req, res, cuadre) {
     </div>
   </form>
 
-  <script src="/js/cuadre-form.js"></script>
   <script>
-    // Inicializar cálculos al cargar
-    window.addEventListener('DOMContentLoaded', () => {
-      calcPista(); calcTienda(); calcNoEfectivo(); calcDepositos(); calcInventario(); calcAlquilerTotal();
-    });
-    function saveCuadre(estado) {
-      // Validar que el asiento contable cuadre (Debe == Haber)
-      const totalDebe  = parseFloat(document.getElementById('total_debe')?.value  || document.getElementById('total_ingresos')?.value || 0) || 0;
-      const totalHaber = parseFloat(document.getElementById('total_haber')?.value || 0);
-      
-      // Calcular debe y haber desde los campos del formulario
-      const pf = id => parseFloat(document.getElementById(id)?.value) || 0;
-      
-      const debe = pf('efectivo_disponible') + pf('sobrante_dumbar')
-                 + pf('ventas_credito_pista') + pf('ventas_credito_tienda')
-                 + pf('pos_bac') + pf('pos_ficohsa')
-                 + pf('comision_bac') + pf('comision_ficohsa')
-                 + pf('nc_descuentos_cc') + pf('descuento_auto_servicio')
-                 + pf('cheques_post_fechados');
+function pfG(x){var e=document.getElementById(x)||document.querySelector('[name="'+x+'"]');var n=parseFloat(e?e.value:'');return isNaN(n)?0:n;}
+function setG(x,v){var e=document.getElementById(x)||document.querySelector('[name="'+x+'"]');if(e)e.value=typeof v==='number'?v.toFixed(2):v;}
+function txt(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
 
-      const haber = pf('total_pista')
-                  + pf('venta_gravada_15') + pf('venta_gravada_18') + pf('venta_exenta')
-                  + pf('isv_15') + pf('isv_18')
-                  + pf('anticipos_clientes') + pf('cobros_tienda')
-                  + pf('total_alquileres');
-
-      const diff = Math.abs(debe - haber);
-      if (diff > 0.10) {
-        const msg = 'El asiento contable no está cuadrado.
-
-'
-          + 'Total DEBE:  L ' + debe.toFixed(2) + '
-'
-          + 'Total HABER: L ' + haber.toFixed(2) + '
-'
-          + 'Diferencia:  L ' + diff.toFixed(2) + '
-
-'
-          + 'Revisá los ingresos y depósitos antes de guardar.';
-        alert(msg);
-        return;
-      }
-
-      document.querySelector('[name=estado]').value = estado;
-
-      // Habilitar campos readonly/disabled temporalmente para que se envíen con el form
-      const camposCalculados = [
-        'ingresos_pista','ingresos_tienda','total_ingresos',
-        'total_no_efectivo','efectivo_disponible','total_depositos',
-        'sobrante','faltante'
-      ];
-      // IDs del formulario (algunos tienen ID distinto al name)
-      const idMap = {
-        ingresos_pista:      'ingresosPista',
-        ingresos_tienda:     'ingresosTienda',
-        total_ingresos:      'totalIngresos',
-        total_no_efectivo:   'totalNoEfectivo',
-        efectivo_disponible: 'efectivoDisponible',
-        total_depositos:     'totalDepositos',
-        sobrante:            'sobranteField',
-        faltante:            'faltanteField'
-      };
-      camposCalculados.forEach(name => {
-        const el = document.getElementById(idMap[name]) || document.querySelector('[name="'+name+'"]');
-        if (el) el.removeAttribute('readonly');
-      });
-
-      document.getElementById('cuadreForm').submit();
-    }
-    function toggleSection(id) {
-      const el = document.getElementById(id);
-      el.style.display = el.style.display === 'none' ? 'block' : 'none';
-    }
+function calcPista(){
+  var s=pfG('ventaSuper'),r=pfG('ventaRegular'),d=pfG('ventaDiesel');
+  setG('totalSuper',s);setG('totalRegular',r);setG('totalDiesel',d);
+  setG('ingresosPista',s+r+d);
+  calcTotales();
+}
+function calcTienda(){
+  var ex=pfG('venta_exenta'),g15=pfG('venta_gravada_15'),g18=pfG('venta_gravada_18');
+  var i15=g15*0.15,i18=g18*0.18,sub=ex+g15+g18,tot=sub+i15+i18;
+  setG('isv15',i15);setG('isv18',i18);
+  txt('isv15Display',i15.toFixed(2));txt('isv18Display',i18.toFixed(2));
+  txt('totalExentaRow',ex.toFixed(2));txt('totalGrav15Row',(g15+i15).toFixed(2));txt('totalGrav18Row',(g18+i18).toFixed(2));
+  txt('subtotalTiendaDisplay',sub.toFixed(2));txt('totalIsvDisplay',(i15+i18).toFixed(2));txt('totalTiendaDisplay',tot.toFixed(2));
+  setG('ingresosTienda',tot);
+  calcTotales();
+}
+var _cpi=1;
+function calcCobrosPista(){
+  var total=0;
+  document.querySelectorAll('.cobro-pista-input').forEach(function(inp){var n=parseFloat(inp.value);total+=isNaN(n)?0:n;});
+  var h=document.getElementById('cobros_tienda_hidden');if(h)h.value=total.toFixed(2);
+  var d=document.getElementById('totalCobrosPistaDisplay');
+  if(d)d.textContent='L '+total.toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  calcTotales();
+}
+function agregarCobroPista(){
+  _cpi++;
+  var c=document.getElementById('cobros-pista-container');if(!c)return;
+  var row=document.createElement('div');
+  row.className='cobro-pista-row';row.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:6px';
+  row.innerHTML='<input type="number" step="0.01" class="form-control num-input cobro-pista-input" placeholder="0.00" value="0" oninput="calcCobrosPista()" style="flex:1">'
+    +'<button type="button" onclick="eliminarCobroPista(this)" class="btn btn-danger btn-sm" title="Eliminar">&#x2715;</button>';
+  c.appendChild(row);row.querySelector('input').focus();
+}
+function eliminarCobroPista(btn){var r=btn.closest('.cobro-pista-row');if(r){r.remove();calcCobrosPista();}}
+function calcAlquilerTotal(){
+  var sub=0;
+  for(var i=1;i<=10;i++){var s=pfG('alquiler'+i+'_subtotal'),isv=s*0.15;setG('alqIsv'+i,isv);txt('alqTotal'+i,'L. '+(s+isv).toFixed(2));sub+=s;}
+  var ia=sub*0.15,tot=sub+ia;
+  txt('alqSubtotalTotal',sub.toFixed(2));txt('alqIsvTotal',ia.toFixed(2));txt('alqGrandTotal',tot.toFixed(2));
+  setG('totalAlquileres',tot);calcTotales();
+}
+function calcAlquiler(i){calcAlquilerTotal();}
+function calcNoEfectivo(){
+  var tot=pfG('nc_anulacion')+pfG('nc_descuentos_cc')+pfG('descuento_auto_servicio')
+    +pfG('comision_bac')+pfG('comision_ficohsa')
+    +pfG('ventas_credito_pista')+pfG('ventas_credito_tienda')
+    +pfG('pos_bac')+pfG('pos_ficohsa');
+  setG('totalNoEfectivo',tot);calcTotales();
+}
+function calcDepositos(){
+  var td=0;for(var i=1;i<=10;i++)td+=pfG('dep'+i);
+  setG('totalDepositos',td);
+  var sd=pfG('sobrante_dumbar'),fd=pfG('faltante_dumbar'),nd=sd-fd;
+  setG('totalDepDumbar',nd);
+  var ch=pfG('cheques_post_fechados'),tf=td+nd+ch;
+  setG('totalDepTotal',tf);calcSobrante();
+}
+function calcTotales(){
+  /* Calcular tienda SIEMPRE desde componentes — nunca desde el campo readonly */
+  var ex =pfG('venta_exenta');
+  var g15=pfG('venta_gravada_15');
+  var g18=pfG('venta_gravada_18');
+  var i15=g15*0.15, i18=g18*0.18;
+  var tienda=ex+g15+i15+g18+i18;
+  var pista=pfG('ingresosPista');
+  var hEl=document.getElementById('cobros_tienda_hidden');
+  var cob=hEl?parseFloat(hEl.value)||0:pfG('cobros_tienda');
+  var ant=pfG('anticipos_clientes');
+  var nc =pfG('nc_descuentos_cred');
+  var alq=pfG('totalAlquileres');
+  var nef=pfG('totalNoEfectivo');
+  var tot=pista+tienda+cob+ant+nc+alq;
+  setG('ingresosTienda',tot);
+  setG('totalIngresos', tot);
+  setG('efectivoDisponible',tot-nef);
+  calcSobrante();
+}
+var calcTotalesGenerales=calcTotales;
+function calcSobrante(){
+  var dep=pfG('totalDepTotal'),ef=pfG('efectivoDisponible'),diff=dep-ef;
+  if(diff>=0){setG('sobranteField',diff);setG('faltanteField',0);var s=document.getElementById('sobranteField');if(s){s.style.background='#f0fdf4';s.style.color='#15803d';}}
+  else{setG('sobranteField',0);setG('faltanteField',Math.abs(diff));var f=document.getElementById('faltanteField');if(f){f.style.background='#fef2f2';f.style.color='#dc2626';}}
+}
+function calcInventario(){
+  ['super','regular','diesel'].forEach(function(t){
+    var id1=t.charAt(0).toUpperCase();
+    var ini=pfG('inv_inicial_'+t),ent=pfG('entregas_'+t),vta=pfG('ventas_'+t+'_lit'),aj=pfG('ajustes_'+t),vara=pfG('lect_vara_'+t),cos=pfG('costo_'+t);
+    var cie=ini+ent-vta+aj,vd=cie-vara,inv=cie*cos;
+    setG('invCierre'+id1,cie);setG('invFinal'+id1,inv);txt('varDiaria'+id1,vd.toFixed(2));txt('varAcum'+id1,vd.toFixed(2));
+  });
+}
+function saveCuadre(estado){
+  var estadoEl=document.querySelector('[name="estado"]');if(estadoEl)estadoEl.value=estado;
+  ['ingresosPista','ingresosTienda','totalIngresos','totalNoEfectivo',
+   'efectivoDisponible','totalDepositos','sobranteField','faltanteField',
+   'totalDepDumbar','totalDepTotal'].forEach(function(id){var el=document.getElementById(id);if(el)el.removeAttribute('readonly');});
+  ['ingresos_pista','ingresos_tienda','total_ingresos','total_no_efectivo',
+   'efectivo_disponible','total_depositos','sobrante','faltante',
+   'total_alquileres','total_depositado_dumbar','total_depositado'].forEach(function(nm){var el=document.querySelector('[name="'+nm+'"]');if(el)el.removeAttribute('readonly');});
+  document.getElementById('cuadreForm').submit();
+}
+function toggleSection(id){var el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+document.addEventListener('DOMContentLoaded',function(){
+  ['ventaSuper','ventaRegular','ventaDiesel'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('input',calcPista);});
+  ['venta_exenta','venta_gravada_15','venta_gravada_18'].forEach(function(nm){var e=document.querySelector('[name="'+nm+'"]');if(e)e.addEventListener('input',calcTienda);});
+  ['anticipos_clientes','nc_descuentos_cred'].forEach(function(nm){var e=document.querySelector('[name="'+nm+'"]');if(e)e.addEventListener('input',calcTotales);});
+  ['nc_anulacion','nc_descuentos_cc','descuento_auto_servicio','comision_bac','comision_ficohsa','ventas_credito_pista','ventas_credito_tienda','pos_bac','pos_ficohsa'].forEach(function(nm){var e=document.querySelector('[name="'+nm+'"]');if(e)e.addEventListener('input',calcNoEfectivo);});
+  for(var i=1;i<=10;i++){var e=document.querySelector('[name="dep'+i+'"]');if(e)e.addEventListener('input',calcDepositos);}
+  ['sobrante_dumbar','faltante_dumbar','cheques_post_fechados'].forEach(function(nm){var e=document.querySelector('[name="'+nm+'"]');if(e)e.addEventListener('input',calcDepositos);});
+  for(var j=1;j<=10;j++){var ea=document.querySelector('[name="alquiler'+j+'_subtotal"]');if(ea)ea.addEventListener('input',calcAlquilerTotal);}
+  ['super','regular','diesel'].forEach(function(t){
+    ['inv_inicial_','entregas_','ajustes_','lect_vara_','costo_'].forEach(function(p){var e=document.querySelector('[name="'+p+t+'"]');if(e)e.addEventListener('input',calcInventario);});
+    var vl=document.querySelector('[name="ventas_'+t+'_lit"]');if(vl)vl.addEventListener('input',calcInventario);
+  });
+  calcPista();calcTienda();calcCobrosPista();calcNoEfectivo();calcDepositos();calcAlquilerTotal();calcInventario();calcTotales();
+});
   </script>
   `;
 
