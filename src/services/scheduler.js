@@ -45,9 +45,10 @@ cron.schedule('* * * * *', async () => {
         continue;
       }
 
-      const msg = wa.mensajeCuadre(emp, cuadre);
-      await wa.enviarAEmpresa(emp.id, 'cuadre_diario', msg);
-      console.log(`[Scheduler] Cuadre enviado → ${emp.nombre}`);
+      const msg     = wa.mensajeCuadre(emp, cuadre);
+      const imgUrls = wa.getImagenesUrls ? wa.getImagenesUrls(cuadre) : [];
+      await wa.enviarAEmpresa(emp.id, 'cuadre_diario', msg, imgUrls);
+      console.log(`[Scheduler] Cuadre enviado → ${emp.nombre} (${imgUrls.length} adjuntos)`);
     } catch (e) {
       console.error(`[Scheduler] Error cuadre ${emp.nombre}:`, e.message);
     }
