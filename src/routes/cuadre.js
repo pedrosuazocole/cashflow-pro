@@ -1,8 +1,35 @@
 // src/routes/cuadre.js - Cuadre Diario completo
+const multer = require('multer');
+const path   = require('path');
+const fss    = require('fs');
 'use strict';
 
 const express = require('express');
 const router = express.Router();
+
+// ── Configurar multer ──
+const uploadsDir = () => {
+  const dir = process.env.RAILWAY_VOLUME_MOUNT_PATH
+    ? require('path').join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads')
+    : require('path').join(__dirname, '../../data/uploads');
+  if (!require('fs').existsSync(dir)) require('fs').mkdirSync(dir, { recursive: true });
+  return dir;
+};
+const _storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir()),
+  filename: (req, file, cb) => {
+    const ext = require('path').extname(file.originalname).toLowerCase();
+    cb(null, 'dep_' + Date.now() + '_' + Math.random().toString(36).slice(2,6) + ext);
+  }
+});
+const upload = multer({
+  storage: _storage,
+  limits: { fileSize: 10*1024*1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = /image\/(jpeg|jpg|png|gif|webp)|application\/pdf/.test(file.mimetype);
+    cb(null, ok);
+  }
+}).array('adjuntos_deposito', 10);
 const db = require('../database');
 const layout = require('./layout');
 const { requireAuth, requireEmpresa } = require('../middleware/auth');
@@ -148,7 +175,7 @@ function renderForm(req, res, cuadre) {
     <a href="/cuadre" class="btn btn-outline">← Volver</a>
   </div>
 
-  <form id="cuadreForm" method="POST" action="${isEdit ? '/cuadre/'+c.id+'?_method=PUT' : '/cuadre'}">
+  <form id="cuadreForm" method="POST" enctype="multipart/form-data" action="${isEdit ? '/cuadre/'+c.id+'?_method=PUT' : '/cuadre'}">
     <input type="hidden" name="_method" value="${isEdit ? 'PUT' : 'POST'}">
 
     <!-- SECCIÓN: DATOS GENERALES -->
@@ -425,6 +452,31 @@ function renderForm(req, res, cuadre) {
             <input type="number" step="0.01" name="faltante" id="faltanteField" value="${v('faltante')}" class="form-control bg-red" readonly>
           </div>
         </div>
+
+        <!-- ADJUNTOS -->
+        <div class="section-divider" style="margin-top:16px;font-weight:700;padding:8px 0;border-top:1px solid #e2e8f0;color:#1a9e5c">
+          📎 Comprobantes de Depósito
+        </div>
+        <div class="form-group">
+          <label>Adjuntar comprobantes (imágenes o PDF — máx. 10 archivos, 10MB c/u)</label>
+          <input type="file" id="adjuntosDeposito" name="adjuntos_deposito"
+            accept="image/*,.pdf" multiple
+            style="padding:10px;border:2px dashed #cbd5e1;border-radius:8px;width:100%;background:#f8fafc;cursor:pointer;font-size:.85rem">
+          <span style="font-size:.75rem;color:#64748b">Formatos: JPG, PNG, PDF. Se enviarán como adjuntos en las notificaciones WhatsApp.</span>
+        </div>
+        <div id="previewAdjuntos" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+        ${c && c.imagenes_deposito ? `
+        <div style="margin-top:8px">
+          <label style="font-size:.8rem;font-weight:600;color:#64748b">📎 Archivos adjuntos guardados:</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            \${c.imagenes_deposito.split(',').filter(Boolean).map(f => {
+              const isPdf = f.toLowerCase().endsWith('.pdf');
+              return isPdf
+                ? '<a href="/uploads/'+f+'" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:#fee2e2;border-radius:6px;font-size:.8rem;text-decoration:none;color:#dc2626;border:1px solid #fecaca">📄 Comprobante PDF</a>'
+                : '<a href="/uploads/'+f+'" target="_blank"><img src="/uploads/'+f+'" style="height:70px;width:70px;object-fit:cover;border-radius:8px;border:2px solid #e2e8f0" title="Ver comprobante"></a>';
+            }).join('')}
+          </div>
+        </div>` : ''}
       </div>
     </div>
 
@@ -646,6 +698,45 @@ function saveCuadre(estado){
   document.getElementById('cuadreForm').submit();
 }
 function toggleSection(id){var el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+
+// Previsualizar adjuntos
+document.addEventListener('DOMContentLoaded',function(){
+  var inp = document.getElementById('adjuntosDeposito');
+  var prev = document.getElementById('previewAdjuntos');
+  if(!inp||!prev) return;
+  inp.addEventListener('change',function(){
+    prev.innerHTML='';
+    var files = Array.from(this.files).slice(0,10);
+    files.forEach(function(f){
+      var wrap = document.createElement('div');
+      wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px';
+      if(f.type.startsWith('image/')){
+        var img = document.createElement('img');
+        img.style.cssText='height:64px;width:64px;object-fit:cover;border-radius:6px;border:2px solid #e2e8f0';
+        var reader = new FileReader();
+        reader.onload=function(e){img.src=e.target.result;};
+        reader.readAsDataURL(f);
+        wrap.appendChild(img);
+      } else {
+        var icon = document.createElement('div');
+        icon.style.cssText='height:64px;width:64px;display:flex;align-items:center;justify-content:center;background:#fee2e2;border-radius:6px;font-size:1.5rem';
+        icon.textContent='📄';
+        wrap.appendChild(icon);
+      }
+      var lbl = document.createElement('span');
+      lbl.style.cssText='font-size:10px;color:#64748b;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center';
+      lbl.textContent=f.name;
+      wrap.appendChild(lbl);
+      prev.appendChild(wrap);
+    });
+    if(this.files.length>10){
+      var w=document.createElement('div');
+      w.style.cssText='color:#dc2626;font-size:.75rem;align-self:center';
+      w.textContent='⚠️ Solo se subirán los primeros 10';
+      prev.appendChild(w);
+    }
+  });
+});
 document.addEventListener('DOMContentLoaded',function(){
   ['ventaSuper','ventaRegular','ventaDiesel'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('input',calcPista);});
   ['venta_exenta','venta_gravada_15','venta_gravada_18'].forEach(function(nm){var e=document.querySelector('[name="'+nm+'"]');if(e)e.addEventListener('input',calcTienda);});
@@ -668,6 +759,12 @@ document.addEventListener('DOMContentLoaded',function(){
 
 // ─── GUARDAR NUEVO ───
 router.post('/', (req, res) => {
+  upload(req, res, function(uploadErr) {
+    if (uploadErr) console.error('[Upload]', uploadErr.message);
+    guardarCuadreNuevo(req, res);
+  });
+});
+function guardarCuadreNuevo(req, res) {
   const empId = req.session.empresa.id;
   const data = req.body;
   
@@ -701,10 +798,14 @@ router.post('/', (req, res) => {
   
   // Generar asiento contable automáticamente
   generarAsiento(result.lastInsertRowid, empId, data, req.session.user.id);
-  
+  generarAsiento(result.lastInsertRowid, empId, data, req.session.user.id);
+  // Guardar adjuntos si se subieron
+  if (req.files && req.files.length > 0) {
+    const paths = req.files.map(f => f.filename).join(',');
+    db.prepare("UPDATE cuadres_diarios SET imagenes_deposito=? WHERE id=?").run(paths, result.lastInsertRowid);
+  }
   res.redirect('/cuadre');
-});
-
+}
 // ─── ACTUALIZAR ───
 router.post('/:id', (req, res) => {
   const { _method } = req.body;
