@@ -275,6 +275,48 @@ try { db.exec("ALTER TABLE cuadres_diarios ADD COLUMN imagenes_deposito TEXT"); 
 try { db.exec("ALTER TABLE cuadres_diarios ADD COLUMN cai_manual TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE cuadres_diarios ADD COLUMN cai_platino TEXT"); } catch(e) {}
 
+// ── Recalcular cuadres existentes con valores correctos ──
+try {
+  db.exec(`UPDATE cuadres_diarios SET
+    efectivo_disponible = (
+      (venta_super + venta_regular + venta_diesel) +
+      (venta_exenta + venta_gravada_15 + isv_15 + venta_gravada_18 + isv_18) +
+      cobros_tienda + anticipos_clientes + nc_descuentos_cred + total_alquileres
+    ) - total_no_efectivo,
+    sobrante = CASE WHEN (
+      (dep1+dep2+dep3+dep4+dep5+dep6+dep7+dep8+dep9+dep10)
+      + sobrante_dumbar - faltante_dumbar + cheques_post_fechados
+      - ((venta_super+venta_regular+venta_diesel)
+        +(venta_exenta+venta_gravada_15+isv_15+venta_gravada_18+isv_18)
+        +cobros_tienda+anticipos_clientes+nc_descuentos_cred+total_alquileres
+        -total_no_efectivo)
+    ) > 0 THEN (
+      (dep1+dep2+dep3+dep4+dep5+dep6+dep7+dep8+dep9+dep10)
+      + sobrante_dumbar - faltante_dumbar + cheques_post_fechados
+      - ((venta_super+venta_regular+venta_diesel)
+        +(venta_exenta+venta_gravada_15+isv_15+venta_gravada_18+isv_18)
+        +cobros_tienda+anticipos_clientes+nc_descuentos_cred+total_alquileres
+        -total_no_efectivo)
+    ) ELSE 0 END,
+    faltante = CASE WHEN (
+      (dep1+dep2+dep3+dep4+dep5+dep6+dep7+dep8+dep9+dep10)
+      + sobrante_dumbar - faltante_dumbar + cheques_post_fechados
+      - ((venta_super+venta_regular+venta_diesel)
+        +(venta_exenta+venta_gravada_15+isv_15+venta_gravada_18+isv_18)
+        +cobros_tienda+anticipos_clientes+nc_descuentos_cred+total_alquileres
+        -total_no_efectivo)
+    ) < 0 THEN ABS(
+      (dep1+dep2+dep3+dep4+dep5+dep6+dep7+dep8+dep9+dep10)
+      + sobrante_dumbar - faltante_dumbar + cheques_post_fechados
+      - ((venta_super+venta_regular+venta_diesel)
+        +(venta_exenta+venta_gravada_15+isv_15+venta_gravada_18+isv_18)
+        +cobros_tienda+anticipos_clientes+nc_descuentos_cred+total_alquileres
+        -total_no_efectivo)
+    ) ELSE 0 END
+    WHERE id > 0`);
+  console.log('[DB] Cuadres existentes recalculados correctamente');
+} catch(e) { console.error('[DB] Error recalculando cuadres:', e.message); }
+
 // ── Tablas de Notificaciones (agregadas) ──
 db.exec(`
   CREATE TABLE IF NOT EXISTS notif_contactos (
