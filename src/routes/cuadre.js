@@ -683,16 +683,52 @@ function calcTotales(){
 }
 var calcTotalesGenerales=calcTotales;
 function calcSobrante(){
-  var dep=pfG('totalDepTotal'),ef=pfG('efectivoDisponible'),diff=dep-ef;
-  if(diff>=0){setG('sobranteField',diff);setG('faltanteField',0);var s=document.getElementById('sobranteField');if(s){s.style.background='#f0fdf4';s.style.color='#15803d';}}
-  else{setG('sobranteField',0);setG('faltanteField',Math.abs(diff));var f=document.getElementById('faltanteField');if(f){f.style.background='#fef2f2';f.style.color='#dc2626';}}
+  // Calcular efectivo disponible SIEMPRE desde componentes (nunca del campo BD)
+  var ex =pfG('venta_exenta'),g15=pfG('venta_gravada_15'),g18=pfG('venta_gravada_18');
+  var i15=g15*0.15, i18=g18*0.18;
+  var tienda = ex+g15+i15+g18+i18;
+  var pista  = pfG('ingresosPista');
+  var hEl    = document.getElementById('cobros_tienda_hidden');
+  var cob    = hEl ? parseFloat(hEl.value)||0 : pfG('cobros_tienda');
+  var ant    = pfG('anticipos_clientes');
+  var nc     = pfG('nc_descuentos_cred');
+  var alq    = pfG('totalAlquileres');
+  var nef    = pfG('totalNoEfectivo');
+  var totalIngresos = pista + tienda + cob + ant + nc + alq;
+  var ef = totalIngresos - nef;
+  // Actualizar el campo readonly para que el valor guardado sea correcto
+  setG('efectivoDisponible', ef);
+  // Calcular sobrante/faltante = Total Depositado - Efectivo Disponible (Excel: K59 - K36)
+  var dep  = pfG('totalDepTotal');
+  var diff = dep - ef;
+  if(diff>=0){
+    setG('sobranteField',diff); setG('faltanteField',0);
+    var s=document.getElementById('sobranteField');
+    if(s){s.style.background='#f0fdf4';s.style.color='#15803d';}
+  } else {
+    setG('sobranteField',0); setG('faltanteField',Math.abs(diff));
+    var f=document.getElementById('faltanteField');
+    if(f){f.style.background='#fef2f2';f.style.color='#dc2626';}
+  }
 }
 function calcInventario(){
   ['super','regular','diesel'].forEach(function(t){
-    var id1=t.charAt(0).toUpperCase();
-    var ini=pfG('inv_inicial_'+t),ent=pfG('entregas_'+t),vta=pfG('ventas_'+t+'_lit'),aj=pfG('ajustes_'+t),vara=pfG('lect_vara_'+t),cos=pfG('costo_'+t);
-    var cie=ini+ent-vta+aj,vd=cie-vara,inv=cie*cos;
-    setG('invCierre'+id1,cie);setG('invFinal'+id1,inv);txt('varDiaria'+id1,vd.toFixed(2));txt('varAcum'+id1,vd.toFixed(2));
+    var id1 = t.charAt(0).toUpperCase();
+    var ini  = pfG('inv_inicial_'+t);
+    var ent  = pfG('entregas_'+t);
+    var vta  = pfG('ventas_'+t+'_lit');
+    var aj   = pfG('ajustes_'+t);
+    var vara = pfG('vara_litros_'+t);   // Vara Litros (P39 en Excel)
+    var cos  = pfG('costo_'+t);
+    // Excel P37: INV.CIERRE = INI + ENTREGAS + AJUSTES - VENTAS
+    var cie  = ini + ent + aj - vta;
+    // Excel P40: VARIACION ACUMULADA = VARA_LITROS - INV_CIERRE
+    var varAcum = vara - cie;
+    // Excel P43: INV.FINAL LEMPIRAS = VARA_LITROS × COSTO_UNITARIO
+    var invFinal = vara * cos;
+    setG('invCierre'+id1, cie);
+    setG('invFinal'+id1,  invFinal);
+    txt('varAcum'+id1,    varAcum.toFixed(2));
   });
 }
 function saveCuadre(estado){
@@ -1155,17 +1191,62 @@ function buildCampos(data) {
     pos_ficohsa: num(data.pos_ficohsa),
     pos_total: num(data.pos_bac) + num(data.pos_ficohsa),
     total_no_efectivo: num(data.total_no_efectivo),
-    efectivo_disponible: num(data.efectivo_disponible),
+    // Recalcular efectivo_disponible desde componentes (nunca del campo readonly del form)
+    get efectivo_disponible() {
+      const ex=num(data.venta_exenta), g15=num(data.venta_gravada_15), g18=num(data.venta_gravada_18);
+      const i15=num(data.isv_15)||g15*0.15, i18=num(data.isv_18)||g18*0.18;
+      const tienda = ex+g15+i15+g18+i18;
+      const pista  = num(data.venta_super)+num(data.venta_regular)+num(data.venta_diesel);
+      const cob    = num(data.cobros_tienda);
+      const total  = pista+tienda+cob+num(data.anticipos_clientes)+num(data.nc_descuentos_cred)+num(data.total_alquileres);
+      return total - num(data.total_no_efectivo);
+    },
     dep1: num(data.dep1), dep2: num(data.dep2), dep3: num(data.dep3), dep4: num(data.dep4), dep5: num(data.dep5),
     dep6: num(data.dep6), dep7: num(data.dep7), dep8: num(data.dep8), dep9: num(data.dep9), dep10: num(data.dep10),
-    total_depositos: num(data.total_depositos),
+    get total_depositos() {
+      return num(data.dep1)+num(data.dep2)+num(data.dep3)+num(data.dep4)+num(data.dep5)
+            +num(data.dep6)+num(data.dep7)+num(data.dep8)+num(data.dep9)+num(data.dep10);
+    },
     sobrante_dumbar: num(data.sobrante_dumbar),
     faltante_dumbar: num(data.faltante_dumbar),
-    total_depositado_dumbar: num(data.total_depositado_dumbar),
+    get total_depositado_dumbar() {
+      return (num(data.dep1)+num(data.dep2)+num(data.dep3)+num(data.dep4)+num(data.dep5)
+             +num(data.dep6)+num(data.dep7)+num(data.dep8)+num(data.dep9)+num(data.dep10))
+             + num(data.sobrante_dumbar) - num(data.faltante_dumbar);
+    },
     cheques_post_fechados: num(data.cheques_post_fechados),
-    sobrante: num(data.sobrante),
-    faltante: num(data.faltante),
-    total_depositado: num(data.total_depositado),
+    get total_depositado() {
+      const deps = num(data.dep1)+num(data.dep2)+num(data.dep3)+num(data.dep4)+num(data.dep5)
+                  +num(data.dep6)+num(data.dep7)+num(data.dep8)+num(data.dep9)+num(data.dep10);
+      return deps + num(data.sobrante_dumbar) - num(data.faltante_dumbar) + num(data.cheques_post_fechados);
+    },
+    // Recalcular sobrante/faltante = Total Depositado - Efectivo Disponible (Excel: K59 - K36)
+    get sobrante() {
+      const ex=num(data.venta_exenta), g15=num(data.venta_gravada_15), g18=num(data.venta_gravada_18);
+      const i15=num(data.isv_15)||g15*0.15, i18=num(data.isv_18)||g18*0.18;
+      const tienda = ex+g15+i15+g18+i18;
+      const pista  = num(data.venta_super)+num(data.venta_regular)+num(data.venta_diesel);
+      const total  = pista+tienda+num(data.cobros_tienda)+num(data.anticipos_clientes)+num(data.nc_descuentos_cred)+num(data.total_alquileres);
+      const efDisp = total - num(data.total_no_efectivo);
+      const deps   = num(data.dep1)+num(data.dep2)+num(data.dep3)+num(data.dep4)+num(data.dep5)
+                    +num(data.dep6)+num(data.dep7)+num(data.dep8)+num(data.dep9)+num(data.dep10);
+      const totalDep = deps + num(data.sobrante_dumbar) - num(data.faltante_dumbar) + num(data.cheques_post_fechados);
+      const diff = totalDep - efDisp;
+      return diff > 0 ? diff : 0;
+    },
+    get faltante() {
+      const ex=num(data.venta_exenta), g15=num(data.venta_gravada_15), g18=num(data.venta_gravada_18);
+      const i15=num(data.isv_15)||g15*0.15, i18=num(data.isv_18)||g18*0.18;
+      const tienda = ex+g15+i15+g18+i18;
+      const pista  = num(data.venta_super)+num(data.venta_regular)+num(data.venta_diesel);
+      const total  = pista+tienda+num(data.cobros_tienda)+num(data.anticipos_clientes)+num(data.nc_descuentos_cred)+num(data.total_alquileres);
+      const efDisp = total - num(data.total_no_efectivo);
+      const deps   = num(data.dep1)+num(data.dep2)+num(data.dep3)+num(data.dep4)+num(data.dep5)
+                    +num(data.dep6)+num(data.dep7)+num(data.dep8)+num(data.dep9)+num(data.dep10);
+      const totalDep = deps + num(data.sobrante_dumbar) - num(data.faltante_dumbar) + num(data.cheques_post_fechados);
+      const diff = totalDep - efDisp;
+      return diff < 0 ? Math.abs(diff) : 0;
+    },
     alquiler1_nombre: str(data.alquiler1_nombre), alquiler1_subtotal: num(data.alquiler1_subtotal), alquiler1_isv: num(data.alquiler1_isv),
     alquiler2_nombre: str(data.alquiler2_nombre), alquiler2_subtotal: num(data.alquiler2_subtotal), alquiler2_isv: num(data.alquiler2_isv),
     alquiler3_nombre: str(data.alquiler3_nombre), alquiler3_subtotal: num(data.alquiler3_subtotal), alquiler3_isv: num(data.alquiler3_isv),
