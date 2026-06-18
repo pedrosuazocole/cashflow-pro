@@ -192,8 +192,16 @@ function renderForm(req, res, cuadre) {
             <input type="text" name="prefijo_premium" value="${vs('prefijo_premium')}" class="form-control" placeholder="Ej: 01172231-01172877">
           </div>
           <div class="form-group">
-            <label>Factura Premium</label>
+            <label>Factura Premium / Platino</label>
             <input type="text" name="fac_premium" value="${vs('fac_premium')}" class="form-control" placeholder="Ej: 01172877">
+          </div>
+          <div class="form-group">
+            <label>CAI Manual</label>
+            <input type="text" name="cai_manual" value="${vs('cai_manual')}" class="form-control" placeholder="CAI Manual">
+          </div>
+          <div class="form-group">
+            <label>CAI Platino</label>
+            <input type="text" name="cai_platino" value="${vs('cai_platino')}" class="form-control" placeholder="CAI Platino">
           </div>
           <div class="form-group">
             <label>Prefijo Ruby</label>
@@ -1107,6 +1115,8 @@ function buildCampos(data) {
     fac_premium: str(data.fac_premium),
     fac_ruby: str(data.fac_ruby),
     fac_talonario: str(data.fac_talonario),
+    cai_manual: str(data.cai_manual),
+    cai_platino: str(data.cai_platino),
     venta_super: num(data.venta_super),
     venta_regular: num(data.venta_regular),
     venta_diesel: num(data.venta_diesel),
