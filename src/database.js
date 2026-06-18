@@ -272,6 +272,8 @@ module.exports = db;
 
 // ── Migración: columna imagenes_deposito ──
 try { db.exec("ALTER TABLE cuadres_diarios ADD COLUMN imagenes_deposito TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE cuadres_diarios ADD COLUMN cai_manual TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE cuadres_diarios ADD COLUMN cai_platino TEXT"); } catch(e) {}
 
 // ── Tablas de Notificaciones (agregadas) ──
 db.exec(`
