@@ -192,22 +192,33 @@ function calcSobrante() {
  * ──────────────────────────────────────────────── */
 function calcInventario() {
   ['super','regular','diesel'].forEach(tipo => {
-    const ini    = pfG('inv_inicial_' + tipo);
-    const ent    = pfG('entregas_' + tipo);
-    const vta    = pfG('ventas_' + tipo + '_lit');
-    const ajuste = pfG('ajustes_' + tipo);
-    const vara   = pfG('lect_vara_' + tipo);
-    const costo  = pfG('costo_' + tipo);
+    const id1    = tipo.charAt(0).toUpperCase(); // S, R o D
+    const ini    = pfG('inv_inicial_'   + tipo);
+    const ent    = pfG('entregas_'      + tipo);
+    const vta    = pfG('ventas_'        + tipo + '_lit');
+    const ajuste = pfG('ajustes_'       + tipo);
+    const vara   = pfG('vara_litros_'   + tipo); // Vara Litros (name="vara_litros_super")
+    const costo  = pfG('costo_'         + tipo);
 
-    const cierre    = ini + ent - vta + ajuste;
-    const varDiaria = cierre - vara;
-    const invFinal  = cierre * costo;
+    // Fórmula del Excel:
+    // INV. CIERRE  = INV_INICIAL + ENTREGAS + AJUSTES - VENTAS
+    const cierre = ini + ent + ajuste - vta;
 
-    setG('invCierre'+tipo.charAt(0).toUpperCase()+tipo.slice(1), cierre);
-    setG('invFinal'+tipo.charAt(0).toUpperCase()+tipo.slice(1),  invFinal);
+    // VARIACIÓN ACUMULADA = VARA_LITROS - INV_CIERRE  (Excel: P40 = P39 - P37)
+    const varAcum = vara - cierre;
 
-    const vdEl = document.getElementById('varDiaria'+tipo.charAt(0).toUpperCase()+tipo.slice(1));
-    if (vdEl) vdEl.textContent = varDiaria.toFixed(2);
+    // INVENTARIO FINAL EN LEMPIRAS = VARA_LITROS × COSTO_UNITARIO  (Excel: P43 = P39 × P42)
+    const invFinal = vara * costo;
+
+    // Actualizar campos calculados
+    setG('invCierre' + id1, cierre);
+
+    // varAcum va al <td id="varAcumS/R/D">
+    const acumEl = document.getElementById('varAcum' + id1);
+    if (acumEl) acumEl.textContent = varAcum.toFixed(2);
+
+    // invFinal va al campo readonly id="invFinalS/R/D"
+    setG('invFinal' + id1, invFinal);
   });
 }
 
