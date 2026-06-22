@@ -23,6 +23,38 @@ function empresasActivas() {
   `).all();
 }
 
+// ── Diagnóstico: empresas SIN configuración de notificaciones ────────────────
+function empresasSinConfig() {
+  return db.prepare(`
+    SELECT e.id, e.nombre,
+           nc.empresa_id IS NULL                         as sin_fila_config,
+           nc.activo                                     as activo,
+           CASE WHEN nc.textmebot_key IS NULL OR nc.textmebot_key='' THEN 1 ELSE 0 END as sin_apikey
+    FROM empresas e
+    LEFT JOIN notif_config nc ON nc.empresa_id = e.id
+  `).all();
+}
+
+// Log de diagnóstico al iniciar el scheduler — muestra qué empresas quedan fuera y por qué
+function logDiagnosticoEmpresas() {
+  const todas = empresasSinConfig();
+  console.log('[Scheduler] Diagnóstico de notif_config por empresa:');
+  todas.forEach(e => {
+    if (e.sin_fila_config) {
+      console.log(`  ❌ ${e.nombre} (id=${e.id}): SIN fila en notif_config — nunca se guardó configuración`);
+    } else if (!e.activo) {
+      console.log(`  ⚠️  ${e.nombre} (id=${e.id}): notif_config existe pero activo=0`);
+    } else if (e.sin_apikey) {
+      console.log(`  ⚠️  ${e.nombre} (id=${e.id}): activo=1 pero textmebot_key vacío`);
+    } else {
+      console.log(`  ✅ ${e.nombre} (id=${e.id}): configuración OK`);
+    }
+  });
+}
+logDiagnosticoEmpresas();
+// Re-ejecutar diagnóstico cada hora para detectar cambios
+cron.schedule('0 * * * *', logDiagnosticoEmpresas);
+
 // ── TAREA: Cuadre Diario (cada minuto verifica si es la hora configurada) ────
 cron.schedule('* * * * *', async () => {
   const ahora = new Date();
