@@ -280,6 +280,8 @@ router.post('/', requireAdmin, (req, res) => {
     const r = db.prepare('INSERT INTO empresas (nombre,rtn,direccion,telefono,email,activa) VALUES (?,?,?,?,?,?)')
       .run(nombre.trim(), rtn||null, direccion||null, telefono||null, email||null, activa??1);
     db.prepare('INSERT OR IGNORE INTO configuracion (empresa_id) VALUES (?)').run(r.lastInsertRowid);
+    // Crear también la fila de notif_config para que el scheduler la reconozca desde el inicio
+    db.prepare('INSERT OR IGNORE INTO notif_config (empresa_id) VALUES (?)').run(r.lastInsertRowid);
     res.json({ ok: true, id: r.lastInsertRowid });
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
