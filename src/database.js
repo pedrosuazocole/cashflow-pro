@@ -317,6 +317,21 @@ try {
   console.log('[DB] Cuadres existentes recalculados correctamente');
 } catch(e) { console.error('[DB] Error recalculando cuadres:', e.message); }
 
+// ── Migración: crear notif_config para empresas que no la tengan ──
+try {
+  const empresasSinConfig = db.prepare(`
+    SELECT e.id FROM empresas e
+    LEFT JOIN notif_config nc ON nc.empresa_id = e.id
+    WHERE nc.empresa_id IS NULL
+  `).all();
+  empresasSinConfig.forEach(e => {
+    db.prepare('INSERT OR IGNORE INTO notif_config (empresa_id) VALUES (?)').run(e.id);
+  });
+  if (empresasSinConfig.length > 0) {
+    console.log(`[DB] Creadas ${empresasSinConfig.length} fila(s) de notif_config faltantes`);
+  }
+} catch(e) { console.error('[DB] Error creando notif_config faltantes:', e.message); }
+
 // ── Tablas de Notificaciones (agregadas) ──
 db.exec(`
   CREATE TABLE IF NOT EXISTS notif_contactos (
