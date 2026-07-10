@@ -324,20 +324,52 @@ function renderForm(req, res, cuadre) {
 
     <!-- SECCIÓN: ALQUILERES -->
     <div class="card mb16">
-      <div class="card-header"><h3>🏢 Ingresos por Alquiler</h3></div>
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <h3 style="margin:0">🏢 Ingresos por Alquiler</h3>
+        <button type="button" onclick="agregarAlquiler()" class="btn btn-outline btn-sm">
+          ➕ Agregar Alquiler
+        </button>
+      </div>
       <div class="card-body">
         <div class="cuadre-table-wrapper">
           <table class="cuadre-table">
-            <thead><tr><th>#</th><th>Nombre/Descripción</th><th>Sub-Total</th><th>ISV</th><th>Total</th></tr></thead>
-            <tbody>
-              ${[1,2,3,4,5,6,7,8,9,10].map(i => `
+            <thead>
               <tr>
-                <td>➊${i > 1 ? ['','➋','➌','➍','➎','➏','➐','➑','➒','➓'][i-1] : ''}</td>
-                <td><input type="text" name="alquiler${i}_nombre" value="${vs('alquiler'+i+'_nombre')}" class="form-control" placeholder="Nombre inquilino ${i}"></td>
-                <td><input type="number" step="0.01" name="alquiler${i}_subtotal" value="${v('alquiler'+i+'_subtotal')}" class="form-control num-input alq-sub" data-idx="${i}" oninput="calcAlquiler(${i})"></td>
-                <td><input type="number" step="0.01" name="alquiler${i}_isv" id="alqIsv${i}" value="${v('alquiler'+i+'_isv')}" class="form-control num-input" oninput="calcAlquilerTotal()"></td>
-                <td id="alqTotal${i}" class="text-right">L. 0.00</td>
-              </tr>`).join('')}
+                <th style="width:40px">#</th>
+                <th>Nombre / Descripción</th>
+                <th>Sub-Total</th>
+                <th>ISV (15%)</th>
+                <th>Total</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody id="alquileresBody">
+              ${(function() {
+                var filas = [], hayDatos = false;
+                for (var i = 1; i <= 10; i++) {
+                  var nom = (c && c['alquiler'+i+'_nombre'] && c['alquiler'+i+'_nombre'] !== 'null')
+                    ? c['alquiler'+i+'_nombre'] : '';
+                  var sub = (c && c['alquiler'+i+'_subtotal']) ? parseFloat(c['alquiler'+i+'_subtotal']) : 0;
+                  var isv = (c && c['alquiler'+i+'_isv']) ? parseFloat(c['alquiler'+i+'_isv']) : 0;
+                  if (nom || sub > 0) { hayDatos = true; filas.push([i, nom, sub, isv]); }
+                }
+                if (!hayDatos) filas.push([1,'',0,0]);
+                return filas.map(function(f) {
+                  var i=f[0], nom=f[1], sub=f[2], isv=f[3];
+                  return '<tr class="alq-row">'
+                    + '<td style="color:#94a3b8;font-weight:700;text-align:center" class="alq-num">●</td>'
+                    + '<td><input type="text" name="alquiler'+i+'_nombre" value="'+nom+'"'
+                    + ' class="form-control" placeholder="Nombre del inquilino"></td>'
+                    + '<td><input type="number" step="0.01" name="alquiler'+i+'_subtotal" value="'+sub+'"'
+                    + ' class="form-control num-input alq-sub" oninput="calcAlquilerTotal()"></td>'
+                    + '<td><input type="number" step="0.01" name="alquiler'+i+'_isv" value="'+isv+'"'
+                    + ' class="form-control num-input alq-isv" oninput="calcAlquilerTotal()"></td>'
+                    + '<td class="text-right alq-total-cell">L. '+((sub+isv).toFixed(2))+'</td>'
+                    + '<td><button type="button" onclick="eliminarAlquiler(this)"'
+                    + ' class="btn btn-danger btn-sm" title="Eliminar">&#x2715;</button></td>'
+                    + '</tr>';
+                }).join('');
+              })()}
             </tbody>
             <tfoot>
               <tr class="bg-total">
@@ -345,6 +377,7 @@ function renderForm(req, res, cuadre) {
                 <td id="alqSubtotalTotal" class="text-right font-bold">0.00</td>
                 <td id="alqIsvTotal" class="text-right font-bold">0.00</td>
                 <td id="alqGrandTotal" class="text-right font-bold">0.00</td>
+                <td></td>
               </tr>
             </tfoot>
           </table>
@@ -638,14 +671,80 @@ function agregarCobroPista(){
   c.appendChild(row);row.querySelector('input').focus();
 }
 function eliminarCobroPista(btn){var r=btn.closest('.cobro-pista-row');if(r){r.remove();calcCobrosPista();}}
+var _alqIdx = 10; // contador global para nombres únicos
+
 function calcAlquilerTotal(){
-  var sub=0;
-  for(var i=1;i<=10;i++){var s=pfG('alquiler'+i+'_subtotal'),isv=s*0.15;setG('alqIsv'+i,isv);txt('alqTotal'+i,'L. '+(s+isv).toFixed(2));sub+=s;}
-  var ia=sub*0.15,tot=sub+ia;
-  txt('alqSubtotalTotal',sub.toFixed(2));txt('alqIsvTotal',ia.toFixed(2));txt('alqGrandTotal',tot.toFixed(2));
-  setG('totalAlquileres',tot);calcTotales();
+  var sub=0, isv=0, tot=0;
+  // Iterar filas dinámicas del tbody
+  var tbody = document.getElementById('alquileresBody');
+  if (!tbody) return;
+  var filas = tbody.querySelectorAll('tr.alq-row');
+  filas.forEach(function(row, idx) {
+    var inpSub = row.querySelector('.alq-sub');
+    var inpIsv = row.querySelector('.alq-isv');
+    var s = parseFloat(inpSub ? inpSub.value : 0) || 0;
+    // ISV: calcular automáticamente si el usuario no lo tocó
+    var i15 = s * 0.15;
+    if (inpIsv && (inpIsv.value === '' || inpIsv.value === '0' || inpIsv.value === '0.00')) {
+      inpIsv.value = i15.toFixed(2);
+    }
+    var iv = parseFloat(inpIsv ? inpIsv.value : 0) || 0;
+    sub += s;
+    isv += iv;
+    // Actualizar celda Total de la fila
+    var celTotal = row.querySelector('.alq-total-cell');
+    if (celTotal) celTotal.textContent = 'L. ' + (s + iv).toFixed(2);
+    // Actualizar numeración
+    var numCell = row.querySelector('.alq-num');
+    if (numCell) numCell.textContent = (idx + 1);
+  });
+  tot = sub + isv;
+  txt('alqSubtotalTotal', sub.toFixed(2));
+  txt('alqIsvTotal',      isv.toFixed(2));
+  txt('alqGrandTotal',    tot.toFixed(2));
+  setG('totalAlquileres', tot);
+  calcTotales();
 }
-function calcAlquiler(i){calcAlquilerTotal();}
+function calcAlquiler(i){ calcAlquilerTotal(); }
+
+function agregarAlquiler(){
+  _alqIdx++;
+  var tbody = document.getElementById('alquileresBody');
+  if (!tbody) return;
+  var filas = tbody.querySelectorAll('tr.alq-row');
+  var num = filas.length + 1;
+  var row = document.createElement('tr');
+  row.className = 'alq-row';
+  row.innerHTML =
+    '<td style="color:#94a3b8;font-weight:700;text-align:center" class="alq-num">'+num+'</td>'
+    + '<td><input type="text" name="alquiler'+_alqIdx+'_nombre"'
+    + ' class="form-control" placeholder="Nombre del inquilino"></td>'
+    + '<td><input type="number" step="0.01" name="alquiler'+_alqIdx+'_subtotal" value="0"'
+    + ' class="form-control num-input alq-sub" oninput="calcAlquilerTotal()"></td>'
+    + '<td><input type="number" step="0.01" name="alquiler'+_alqIdx+'_isv" value="0"'
+    + ' class="form-control num-input alq-isv" oninput="calcAlquilerTotal()"></td>'
+    + '<td class="text-right alq-total-cell">L. 0.00</td>'
+    + '<td><button type="button" onclick="eliminarAlquiler(this)"'
+    + ' class="btn btn-danger btn-sm" title="Eliminar">&#x2715;</button></td>';
+  tbody.appendChild(row);
+  row.querySelector('.alq-sub').focus();
+}
+
+function eliminarAlquiler(btn){
+  var row = btn.closest('tr.alq-row');
+  var tbody = document.getElementById('alquileresBody');
+  // No eliminar si es la única fila
+  if (tbody && tbody.querySelectorAll('tr.alq-row').length <= 1) {
+    // Solo limpiar en lugar de eliminar
+    row.querySelectorAll('input').forEach(function(inp) {
+      inp.value = inp.type === 'text' ? '' : '0';
+    });
+    row.querySelector('.alq-total-cell').textContent = 'L. 0.00';
+    calcAlquilerTotal();
+    return;
+  }
+  if (row) { row.remove(); calcAlquilerTotal(); }
+}
 function calcNoEfectivo(){
   var tot=pfG('nc_anulacion')+pfG('nc_descuentos_cc')+pfG('descuento_auto_servicio')
     +pfG('comision_bac')+pfG('comision_ficohsa')
@@ -788,7 +887,15 @@ document.addEventListener('DOMContentLoaded',function(){
   ['nc_anulacion','nc_descuentos_cc','descuento_auto_servicio','comision_bac','comision_ficohsa','ventas_credito_pista','ventas_credito_tienda','pos_bac','pos_ficohsa'].forEach(function(nm){var e=document.querySelector('[name="'+nm+'"]');if(e)e.addEventListener('input',calcNoEfectivo);});
   for(var i=1;i<=10;i++){var e=document.querySelector('[name="dep'+i+'"]');if(e)e.addEventListener('input',calcDepositos);}
   ['sobrante_dumbar','faltante_dumbar','cheques_post_fechados'].forEach(function(nm){var e=document.querySelector('[name="'+nm+'"]');if(e)e.addEventListener('input',calcDepositos);});
-  for(var j=1;j<=10;j++){var ea=document.querySelector('[name="alquiler'+j+'_subtotal"]');if(ea)ea.addEventListener('input',calcAlquilerTotal);}
+  // Alquileres: delegación de eventos sobre el tbody para soportar filas dinámicas
+  var alqTbody = document.getElementById('alquileresBody');
+  if (alqTbody) {
+    alqTbody.addEventListener('input', function(e) {
+      if (e.target.classList.contains('alq-sub') || e.target.classList.contains('alq-isv')) {
+        calcAlquilerTotal();
+      }
+    });
+  }
   ['super','regular','diesel'].forEach(function(t){
     ['inv_inicial_','entregas_','ajustes_','lect_vara_','costo_'].forEach(function(p){var e=document.querySelector('[name="'+p+t+'"]');if(e)e.addEventListener('input',calcInventario);});
     var vl=document.querySelector('[name="ventas_'+t+'_lit"]');if(vl)vl.addEventListener('input',calcInventario);
@@ -1247,6 +1354,7 @@ function buildCampos(data) {
       const diff = totalDep - efDisp;
       return diff < 0 ? Math.abs(diff) : 0;
     },
+    // Alquileres 1-10 (slots fijos en BD)
     alquiler1_nombre: str(data.alquiler1_nombre), alquiler1_subtotal: num(data.alquiler1_subtotal), alquiler1_isv: num(data.alquiler1_isv),
     alquiler2_nombre: str(data.alquiler2_nombre), alquiler2_subtotal: num(data.alquiler2_subtotal), alquiler2_isv: num(data.alquiler2_isv),
     alquiler3_nombre: str(data.alquiler3_nombre), alquiler3_subtotal: num(data.alquiler3_subtotal), alquiler3_isv: num(data.alquiler3_isv),
@@ -1257,6 +1365,15 @@ function buildCampos(data) {
     alquiler8_nombre: str(data.alquiler8_nombre), alquiler8_subtotal: num(data.alquiler8_subtotal), alquiler8_isv: num(data.alquiler8_isv),
     alquiler9_nombre: str(data.alquiler9_nombre), alquiler9_subtotal: num(data.alquiler9_subtotal), alquiler9_isv: num(data.alquiler9_isv),
     alquiler10_nombre: str(data.alquiler10_nombre), alquiler10_subtotal: num(data.alquiler10_subtotal), alquiler10_isv: num(data.alquiler10_isv),
+    // Slots extra dinámicos (alquiler11 en adelante — llegan como campos extra del form)
+    ...(function() {
+      const extra = {};
+      Object.keys(data).forEach(k => {
+        const m = k.match(/^alquiler(1[1-9]|[2-9]\d+)_(nombre|subtotal|isv)$/);
+        if (m) extra[k] = m[2]==='nombre' ? str(data[k]) : num(data[k]);
+      });
+      return extra;
+    })(),
     total_alquileres: num(data.total_alquileres),
     inv_inicial_super: num(data.inv_inicial_super), inv_inicial_regular: num(data.inv_inicial_regular), inv_inicial_diesel: num(data.inv_inicial_diesel),
     entregas_super: num(data.entregas_super), entregas_regular: num(data.entregas_regular), entregas_diesel: num(data.entregas_diesel),
