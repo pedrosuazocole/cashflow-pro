@@ -674,31 +674,27 @@ function eliminarCobroPista(btn){var r=btn.closest('.cobro-pista-row');if(r){r.r
 var _alqIdx = 10; // contador global para nombres únicos
 
 function calcAlquilerTotal(){
-  var sub=0, isv=0, tot=0;
-  // Iterar filas dinámicas del tbody
+  var sub=0, isv=0;
   var tbody = document.getElementById('alquileresBody');
   if (!tbody) return;
-  var filas = tbody.querySelectorAll('tr.alq-row');
-  filas.forEach(function(row, idx) {
+  tbody.querySelectorAll('tr.alq-row').forEach(function(row, idx) {
     var inpSub = row.querySelector('.alq-sub');
     var inpIsv = row.querySelector('.alq-isv');
-    var s = parseFloat(inpSub ? inpSub.value : 0) || 0;
-    // ISV: calcular automáticamente si el usuario no lo tocó
-    var i15 = s * 0.15;
-    if (inpIsv && (inpIsv.value === '' || inpIsv.value === '0' || inpIsv.value === '0.00')) {
-      inpIsv.value = i15.toFixed(2);
-    }
-    var iv = parseFloat(inpIsv ? inpIsv.value : 0) || 0;
+    var s   = parseFloat(inpSub ? inpSub.value : 0) || 0;
+    // ISV SIEMPRE calculado = subtotal × 15%
+    var iv  = s * 0.15;
+    // Actualizar el campo ISV con el valor calculado
+    if (inpIsv) inpIsv.value = iv.toFixed(2);
     sub += s;
     isv += iv;
-    // Actualizar celda Total de la fila
+    // Total de la fila
     var celTotal = row.querySelector('.alq-total-cell');
     if (celTotal) celTotal.textContent = 'L. ' + (s + iv).toFixed(2);
-    // Actualizar numeración
+    // Numeración
     var numCell = row.querySelector('.alq-num');
     if (numCell) numCell.textContent = (idx + 1);
   });
-  tot = sub + isv;
+  var tot = sub + isv;
   txt('alqSubtotalTotal', sub.toFixed(2));
   txt('alqIsvTotal',      isv.toFixed(2));
   txt('alqGrandTotal',    tot.toFixed(2));
