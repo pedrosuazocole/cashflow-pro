@@ -1361,14 +1361,22 @@ function buildCampos(data) {
     alquiler8_nombre: str(data.alquiler8_nombre), alquiler8_subtotal: num(data.alquiler8_subtotal), alquiler8_isv: num(data.alquiler8_isv),
     alquiler9_nombre: str(data.alquiler9_nombre), alquiler9_subtotal: num(data.alquiler9_subtotal), alquiler9_isv: num(data.alquiler9_isv),
     alquiler10_nombre: str(data.alquiler10_nombre), alquiler10_subtotal: num(data.alquiler10_subtotal), alquiler10_isv: num(data.alquiler10_isv),
-    // Slots extra dinámicos (alquiler11 en adelante — llegan como campos extra del form)
+    // Reasignar TODOS los alquileres del form (cualquier índice) a slots 1-10 de la BD
     ...(function() {
-      const extra = {};
+      const idxSet = new Set();
       Object.keys(data).forEach(k => {
-        const m = k.match(/^alquiler(1[1-9]|[2-9]\d+)_(nombre|subtotal|isv)$/);
-        if (m) extra[k] = m[2]==='nombre' ? str(data[k]) : num(data[k]);
+        const m = k.match(/^alquiler(\d+)_subtotal$/);
+        if (m) idxSet.add(parseInt(m[1]));
       });
-      return extra;
+      const indices = Array.from(idxSet).sort((a,b) => a-b);
+      const campos = {};
+      for (let slot = 1; slot <= 10; slot++) {
+        const idx = indices[slot - 1];
+        campos['alquiler'+slot+'_nombre']   = idx ? str(data['alquiler'+idx+'_nombre'])   : null;
+        campos['alquiler'+slot+'_subtotal'] = idx ? num(data['alquiler'+idx+'_subtotal']) : 0;
+        campos['alquiler'+slot+'_isv']      = idx ? num(data['alquiler'+idx+'_isv'])      : 0;
+      }
+      return campos;
     })(),
     total_alquileres: num(data.total_alquileres),
     inv_inicial_super: num(data.inv_inicial_super), inv_inicial_regular: num(data.inv_inicial_regular), inv_inicial_diesel: num(data.inv_inicial_diesel),
