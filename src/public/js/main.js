@@ -45,7 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) {
           showToast('Empresa cambiada exitosamente', 'success');
-          setTimeout(() => location.reload(), 800);
+          // Forzar recarga sin usar caché del navegador (evita ver datos de la empresa anterior)
+          setTimeout(() => {
+            location.href = location.pathname + '?_t=' + Date.now();
+          }, 800);
         }
       } catch (e) {
         showToast('Error al cambiar empresa', 'error');
