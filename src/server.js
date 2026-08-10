@@ -59,6 +59,15 @@ app.use(session({
   cookie: { maxAge: 8 * 60 * 60 * 1000 } // 8 horas
 }));
 
+// Evitar que el navegador cachee páginas que dependen de la empresa activa en sesión
+// (sin esto, al cambiar de empresa el navegador puede mostrar una copia vieja
+//  cacheada con los datos de la empresa anterior — ej. API Key de notificaciones)
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  next();
+});
+
 // Variables globales para vistas + lista de empresas
 app.use((req, res, next) => {
   res.locals.user    = req.session.user    || null;
